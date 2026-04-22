@@ -1,0 +1,70 @@
+#lang racket
+;; ....................TDA CARTA...........................................
+
+; Dom: tipo (str) X args (. args)
+; Rec: card (list)
+; Tipo recursiin: no aplica
+
+
+;; TDA CARTA (CARD)
+;; Representación: lista que se ordena según su tipo de carta
+;; - Pokemon: (list 'pokemon nombre evolucionaDe ps tipo debilidad resistencia costeRetirada esEx habilidad ataques)
+;; - Energy:  (list 'energy nombre)
+;; - Trainer: (list 'trainer nombre trainerType texto funcion-accion)
+
+;; constantes globales/que dió el profe
+(define CARD-TYPE '(pokemon energy trainer))
+(define (card-type? t)
+  (and (symbol? t) (member t CARD-TYPE)))
+
+(define ELEMENT-TYPE '(grass fire water lightning psychic fighting darkness metal colorless fairy))
+(define (element-type? e)
+  (and (symbol? e) (member e ELEMENT-TYPE)))
+
+(define ENERGY '((fire-energy . fire) (water-energy . water) (grass-energy . grass) 
+                 (lightning-energy . lightning) (psychic-energy . psychic) (fighting-energy . fighting) 
+                 (darkness-energy . darkness) (metal-energy . metal) (fairy-energy . fairy) 
+                 (colorless-energy . colorless)))
+
+
+; ; constructores
+
+; DESC: Construye una carta validando su tipo y la cantidad de args que necesita
+; Dom: tipoCarta (symbol) X argumentos variables (. args)
+; Rec: card (list)
+; Tipo recursión: No aplica
+(define (card tipo . args)
+  (if (card-type? tipo)
+      (cond
+        ; caso1:pokemon(10)
+        [(eq? tipo 'pokemon)
+         (if (= (length args) 10)
+             (cons 'pokemon args)
+             (error "la carta pokemon requiere 10 argumentos"))]
+        
+        ; caso2: energia(1)
+        [(eq? tipo 'energy)
+         (if (= (length args) 1)
+             (cons 'energy args)
+             (error "la carta requiere el tipo d energia."))]
+        
+        ; caso3: trainer(4)
+        [(eq? tipo 'trainer)
+         (if (= (length args) 4)
+             (cons 'trainer args)
+             (error "la carta requiere 4 argumentos."))]
+        )
+      (error "tipo de carta no valido.")))
+
+
+;; pertenencia
+;;;;;;;;;;;;;
+
+;;DESC: verifica si es carta valida
+; Dom: c (any)
+; Rec: bool
+; Tipo recursión: no aplica
+(define (card? c)
+  (and (list? c)
+       (> (length c) 0)
+       (card-type? (car c))))
