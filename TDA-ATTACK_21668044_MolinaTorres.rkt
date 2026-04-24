@@ -35,3 +35,22 @@
        (eq? (car a) 'attack)
        (= (length a) 5)))
 
+
+;Selectores
+
+; Dom: a (attack)
+; Rec: sting | func | list | null
+
+(define (get-attack-cost a)
+  (if (attack? a) (cadr a) null))
+
+
+(define (get-attack-name a)
+  (if (attack? a) (caddr a) null))
+
+
+(define (get-attack-desc a)
+  (if (attack? a) (cadddr a) null))
+
+(define (get-attack-effect a)
+  (if (attack? a) (list-ref a 4) (lambda (g args) g)))
