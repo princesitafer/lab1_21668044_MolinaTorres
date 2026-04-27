@@ -12,6 +12,13 @@
  get-pokemon-hp
  get-pokemon-attacks
  get-trainer-effect
+ get-pokemon-evolve-from
+ get-pokemon-hp 
+ get-pokemon-type 
+ get-pokemon-attacks 
+ get-pokemon-is-ex?
+ ;get-trainer-type aun sin aplicar
+ ;get-trainer-effect aun sin aplicar
  )
 
 
