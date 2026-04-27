@@ -6,7 +6,8 @@
  deck
  deck?
  get-deck-cards
- ;shuffle-deck
+ shuffleDeck
+ randomPuro
  )
 
 
@@ -67,7 +68,22 @@
 (define (randomPuro Xn)
   (modulo (+ (* Xn 1103515245) 12345) 2147483648))
 
-;(define (shuffleDeck d seed)
-;  (if (null? d)
-;      '()
-;     (cons)))
+
+; func auxiliar para quitar la carta ya barajada
+(define (quitar-carta lst n)
+  (if (= n 0)
+      (cdr lst)
+      (cons (car lst) (quitar-carta (cdr lst) (- n 1)))))
+
+
+; DESC: baraja el mazo
+; Dom: Xn (int)
+; Rec: int
+; Recursión: Natural
+
+(define (shuffleDeck mazo seed)
+  (if (null? mazo)
+      '()
+      (cons (list-ref mazo (modulo seed (length mazo)))
+            (shuffleDeck (quitar-carta mazo (modulo seed (length mazo))) 
+                         (randomPuro seed))))) 
