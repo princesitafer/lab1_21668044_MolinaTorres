@@ -67,7 +67,7 @@
         [(eq? tipo 'pokemon)
          (if (and (= (length args) 10) (> (list-ref args 2) 0))
              (cons 'pokemon args)
-             (error "la carta pokemon requiere 10 argumentos"))]
+             (error "la carta pokemon requiere 10 argumentos y vida > 0"))]
         
         ; caso2: energia(1)
         [(eq? tipo 'energy)
@@ -117,7 +117,7 @@
 (define (get-pokemon-evolve-from c) (if (eq? (get-card-type c) 'pokemon) (list-ref c 2) (error "no es un pokemon")))
 (define (get-pokemon-hp c)          (if (eq? (get-card-type c) 'pokemon) (list-ref c 3) (error "no es un pokemon")))
 (define (get-pokemon-type c)        (if (eq? (get-card-type c) 'pokemon) (list-ref c 4) (error "no es un pokemon")))
-(define (get-pokemon-attacks c)     (if (eq? (get-card-type c) 'pokemon) (list-ref c 9) (error "no es un pokemon")))
+(define (get-pokemon-attacks c)     (if (eq? (get-card-type c) 'pokemon) (list-ref c 10) (error "no es un pokemon")))
 (define (get-pokemon-is-ex? c)      (if (eq? (get-card-type c) 'pokemon) (list-ref c 8) (error "no es un pokemon")))
 
 ;Selectores para entrenador
