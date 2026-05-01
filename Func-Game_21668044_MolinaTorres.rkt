@@ -53,6 +53,44 @@
    semilla))
 
 
+
+;CONVERTIR LST-CARDS -> STRING D NOMBRES
+(define (listar-nombres cartas acc-nombres)
+  (if (null? cartas)
+      acc-nombres
+      (listar-nombres (cdr cartas) 
+                      (string-append acc-nombres "\n\t" (get-card-name (car cartas))))))
+
+(define (printGame game id-jugador-ver)
+  (define (aux g step id-ver acc)
+    (cond
+      [(= step 0)
+       (aux g 1 id-ver 
+                     (string-append "Turno actual: Jugador " 
+                                    (number->string (+ (list-ref g 3) 1)) "\n\n"))]
+      
+      ;player1
+      [(= step 1)
+       (aux g 2 id-ver 
+            (string-append acc "PLAYER 1: " 
+                                    (number->string (length (cadr (car g)))) " cartas en la mano"
+                                    (if (= id-ver 1) (listar-nombres (cadr (car g)) "") "") "\n"
+                                    "deck: " (number->string (length (caddr (car g)))) " cartas disponibles\n"
+                                    "Premios disponibles: " (number->string (length (cadddr (car g)))) "\n\n"))]
+      
+      ;player 2
+      [(= step 2)
+       (aux g 3 id-ver 
+                     (string-append acc "PLayer 2: " 
+                                    (number->string (length (cadr (cadr g)))) " cartas en la mano"
+                                    (if (= id-ver 2) (listar-nombres (cadr (cadr g)) "") "") "\n"
+                                    "deck: " (number->string (length (caddr (cadr g)))) " cartas disponibles\n"
+                                    "Premios disponibles: " (number->string (length (cadddr (cadr g)))) "\n"))]
+      
+      [else acc]))
+
+  (aux game 0 id-jugador-ver ""))
+
 ;; funcion de prueba temporal!!
 ;(define e1 (card 'energy "Energia Rayo" 'lightning))
 ;(define atk1 (attack '(lightning) "Trueno" "Hace daño" (lambda (g) g)))
@@ -61,3 +99,5 @@
 ;mazo cn 1 Pikachu y 59 energys
 ;(define d1 (apply deck (cons c1 (make-list 59 e1))))
 ;(define g1 (initGame d1 d1 1531312))
+;(define g3Str  (printGame  g1 1))
+
