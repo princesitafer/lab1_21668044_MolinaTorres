@@ -34,15 +34,21 @@
       (preparar-mazo-valido (shuffleDeck mazo (randomPuro semilla)) (randomPuro semilla))))
 
 
-; ; INICIO DEL JUEGO
+; ; ------------------------------------------- INICIO DEL JUEGO ----------------------------------------------------
+
 (define (lanzar-moneda sem)
   (modulo (randomPuro sem) 2))
 
+;; DESC: Simula la banca en juego
+;; DOM: game(LIST) X cards(list)
+;; REC: game(LIST)
 (define (armar-estado-juego m1 m2 sem)
   (list 
-   ;PLAYERS: nombre X mano(cartas en uso) X deck-restante X premios)
-   (list "Player 1" (take m1 7) (drop (drop m1 7) 6) (take (drop m1 7) 6))
-   (list "Player 2" (take m2 7) (drop (drop m2 7) 6) (take (drop m2 7) 6))
+   ;player 1
+   ;(NAME MANO DECK PREMIOS ACTIVOS BANCA DESCARTADOS)
+   (list "Player 1" (take m1 7) (drop (drop m1 7) 6) (take (drop m1 7) 6) '() '() '())
+   ;player 2
+   (list "Player 2" (take m2 7) (drop (drop m2 7) 6) (take (drop m2 7) 6) '() '() '())
    sem
    (lanzar-moneda sem)))
 
@@ -61,43 +67,66 @@
       (listar-nombres (cdr cartas) 
                       (string-append acc-nombres "\n\t" (get-card-name (car cartas))))))
 
+
+(define (formatear-pokemons lista-pokes acc)
+  (if (null? lista-pokes)
+      acc
+      (formatear-pokemons 
+       (cdr lista-pokes)
+       (string-append acc "\n\t" 
+                      (list-ref (car lista-pokes) 1) "    " ;nombre pokemon
+                      (number->string (list-ref (car lista-pokes) 3)) "PS    "  ;vida poke
+                      (symbol->string (list-ref (car lista-pokes) 4)) "    " ; tipo de pokemonm 
+                      "0 daño")))) ; daño del pokemon; falta la fn así que lo dejo en 0!
+
 (define (printGame game id-jugador-ver)
   (define (aux g step id-ver acc)
     (cond
       [(= step 0)
-       (aux g 1 id-ver 
-                     (string-append "Turno actual: Jugador " 
-                                    (number->string (+ (list-ref g 3) 1)) "\n\n"))]
+       (aux g 1 id-ver (string-append "Turno actual -> PLAYER " (number->string (+ (list-ref g 3) 1)) "\n\n"))]
       
-      ;player1
+      ;pplayer 1
       [(= step 1)
        (aux g 2 id-ver 
-            (string-append acc "PLAYER 1: " 
-                                    (number->string (length (cadr (car g)))) " cartas en la mano"
-                                    (if (= id-ver 1) (listar-nombres (cadr (car g)) "") "") "\n"
-                                    "deck: " (number->string (length (caddr (car g)))) " cartas disponibles\n"
-                                    "Premios disponibles: " (number->string (length (cadddr (car g)))) "\n\n"))]
+            (string-append acc "Jugador 1: " (number->string (length (cadr (car g)))) " cartas en la mano"
+                           (if (= id-ver 1) (listar-nombres (cadr (car g)) "") "") "\n"
+                           "Mazo: " (number->string (length (caddr (car g)))) " cartas disponibles\n"
+                           "Premios disponibles: " (number->string (length (cadddr (car g)))) "\n"
+                           "Banca: " (formatear-pokemons (list-ref (car g) 5) "") "\n"
+                           "Pokemon activo: " (if (null? (list-ref (car g) 4)) "Ninguno" (formatear-pokemons (list (list-ref (car g) 4)) "")) "\n"
+                           "Pila de descarte: " (listar-nombres (list-ref (car g) 6) "") "\n\n"))]
       
-      ;player 2
+      ; player 2
       [(= step 2)
        (aux g 3 id-ver 
-                     (string-append acc "PLayer 2: " 
-                                    (number->string (length (cadr (cadr g)))) " cartas en la mano"
-                                    (if (= id-ver 2) (listar-nombres (cadr (cadr g)) "") "") "\n"
-                                    "deck: " (number->string (length (caddr (cadr g)))) " cartas disponibles\n"
-                                    "Premios disponibles: " (number->string (length (cadddr (cadr g)))) "\n"))]
-      
+            (string-append acc "Jugador 2: " (number->string (length (cadr (cadr g)))) " cartas en la mano"
+                           (if (= id-ver 2) (listar-nombres (cadr (cadr g)) "") "") "\n"
+                           "Mazo: " (number->string (length (caddr (cadr g)))) " cartas disponibles\n"
+                           "Premios disponibles: " (number->string (length (cadddr (cadr g)))) "\n"
+                           "Banca: " (formatear-pokemons (list-ref (cadr g) 5) "") "\n"
+                           "Pokemon activo: " (if (null? (list-ref (cadr g) 4)) "Ninguno" (formatear-pokemons (list (list-ref (cadr g) 4)) "")) "\n"
+                           "Pila de descarte: " (listar-nombres (list-ref (cadr g) 6) "") "\n"))]
       [else acc]))
-
   (aux game 0 id-jugador-ver ""))
 
-;; funcion de prueba temporal!!
-;(define e1 (card 'energy "Energia Rayo" 'lightning))
-;(define atk1 (attack '(lightning) "Trueno" "Hace daño" (lambda (g) g)))
-;(define c1 (card 'pokemon "Pikachu" '() 60 'lightning 'fighting 'metal 1 #f '() (list atk1)))
+;(define (playToBench game carta)
+;(define (remover-de-mano mano carta-buscada)
 
-;mazo cn 1 Pikachu y 59 energys
-;(define d1 (apply deck (cons c1 (make-list 59 e1))))
-;(define g1 (initGame d1 d1 1531312))
-;(define g3Str  (printGame  g1 1))
+;; funcion de prueba temporal!!
+#;((define e1 (card 'energy "Energia Rayo" 'lightning))
+   (define atk1 (attack '(lightning) "Trueno" "Hace daño" (lambda (g) g)))
+   (define c1 (card 'pokemon "Pikachu" '() 60 'lightning 'fighting 'metal 1 #f '() (list atk1)))
+
+   ;mazo cn 1 Pikachu y 59 energys
+   (define d1 (apply deck (cons c1 (make-list 59 e1))))
+   (define g1 (initGame d1 d1 1531312))
+
+
+   (define mi-pika (list-ref (cadr (car g1)) 5)) 
+   (define g2 (playToBench g1 mi-pika));ejecuta la jugaada
+
+   ;resultado
+   (displayln "--- game cn pikachu en banca ---")
+   (displayln (printGame g2 1)))
+
 
