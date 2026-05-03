@@ -109,8 +109,28 @@
       [else acc]))
   (aux game 0 id-jugador-ver ""))
 
-;(define (playToBench game carta)
-;(define (remover-de-mano mano carta-buscada)
+
+(define (playToBench game carta)
+  (define (remover-de-mano mano carta-buscada)
+    (cond [(null? mano) '()]
+          [(equal? (car mano) carta-buscada) (cdr mano)]
+          [else (cons (car mano) (remover-de-mano (cdr mano) carta-buscada))]))
+
+  (define (actualizar-jugador jugador c)
+    (if (and (eq? (get-card-type c) 'pokemon) (< (length (list-ref jugador 5)) 5))
+        (list (car jugador)                         ;nombre
+              (remover-de-mano (cadr jugador) c)    ;nueva mano
+              (caddr jugador)                       ;deck
+              (cadddr jugador)                      ;premios
+              (list-ref jugador 4)                  ;activo
+              (cons c (list-ref jugador 5))         ;nueva banca
+              (list-ref jugador 6))                 ;descartes
+        jugador)) ;caso en que no hay espacio o no es pokemon
+
+  (if (= (list-ref game 3) 0) ;turno player 1
+      (list (actualizar-jugador (car game) carta) (cadr game) (caddr game) (cadddr game))
+      (list (car game) (actualizar-jugador (cadr game) carta) (caddr game) (cadddr game))))
+
 
 ;; funcion de prueba temporal!!
 #;((define e1 (card 'energy "Energia Rayo" 'lightning))
