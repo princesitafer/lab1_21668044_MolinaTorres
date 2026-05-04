@@ -69,15 +69,25 @@
 
 
 (define (formatear-pokemons lista-pokes acc)
-  (if (null? lista-pokes)
-      acc
-      (formatear-pokemons 
-       (cdr lista-pokes)
-       (string-append acc "\n\t" 
-                      (list-ref (car lista-pokes) 1) "    " ;nombre pokemon
-                      (number->string (list-ref (car lista-pokes) 3)) "PS    "  ;vida poke
-                      (symbol->string (list-ref (car lista-pokes) 4)) "    " ; tipo de pokemonm 
-                      "0 daño")))) ; daño del pokemon; falta la fn así que lo dejo en 0!
+  (cond 
+    [(null? lista-pokes) acc] ; lista nula se retorna el acc
+    
+    [(null? (car lista-pokes)) (formatear-pokemons (cdr lista-pokes) acc)] ;si el 1er elemento es nulo vamos la sgte
+
+    ;ver pokemon
+    [else 
+     (formatear-pokemons 
+      (cdr lista-pokes)
+      (string-append acc "\n\t" 
+                     (list-ref (car lista-pokes) 1) "    " ;nombre pokemon
+                     (number->string (list-ref (car lista-pokes) 3)) "PS    "  ;vida poke
+                     (symbol->string (list-ref (car lista-pokes) 4)) "    " ; tipo de pokemonm 
+                     (if (> (length (car lista-pokes)) 11)
+                         (string-append "\n\t Energias en juego: " 
+                                        (listar-nombres (drop (car lista-pokes) 11) ""))
+                         "")))]))
+
+        
 
 (define (printGame game id-jugador-ver)
   (define (aux g step id-ver acc)
@@ -132,21 +142,70 @@
       (list (car game) (actualizar-jugador (cadr game) carta) (caddr game) (cadddr game))))
 
 
+
+; Dom: juego (Juego) X cartaDeLaBanca (card)
+; REC: Juego
+(define (changeActivePokemon game carta-banca)
+  (define (remover-de-banca banca c);aux para sacar la carta de la banca de un player
+    (cond [(null? banca) '()]
+          [(equal? (car banca) c) (cdr banca)]
+          [else (cons (car banca) (remover-de-banca (cdr banca) c))]))
+
+
+  (define (procesar-cambio jugador c)
+    (if (member c (list-ref jugador 5)) ;si la carta esta en banca
+        (list (car jugador)    ;noimbre
+              (cadr jugador)   ;mano
+              (caddr jugador)  ;deck
+              (cadddr jugador) ; premio
+              c                ; nuevo activo
+
+              ;banca
+              (if (null? (list-ref jugador 4)) 
+                  (remover-de-banca (list-ref jugador 5) c)
+                  (cons (list-ref jugador 4) (remover-de-banca (list-ref jugador 5) c)))
+              (list-ref jugador 6)) jugador)) 
+
+  ;se cambian datos nuevos de cada player
+  (list (procesar-cambio (car game) carta-banca)   ;player 1
+        (procesar-cambio (cadr game) carta-banca)  ;player 2
+        (list-ref game 2)                          ;seed
+        (list-ref game 3)))                        ;turno
+
+
+; Dom: juego (Juego) X cartaPokemon (card) X cartaEnergia (card)
+; REC: Juego
+#;(define (useEnergyCard game pokemon-destino carta-energia)
+  ;verificacion si es elturno y si la carta es energia
+  (define turno (list-ref game 3))
+  (define jugador-actual (if (= turno 0) (car game) (cadr game)))
+  (define mano (cadr jugador-actual)))
+
+
+
 ;; funcion de prueba temporal!!
 #;((define e1 (card 'energy "Energia Rayo" 'lightning))
-   (define atk1 (attack '(lightning) "Trueno" "Hace daño" (lambda (g) g)))
-   (define c1 (card 'pokemon "Pikachu" '() 60 'lightning 'fighting 'metal 1 #f '() (list atk1)))
+(define atk1 (attack '(lightning) "Trueno" "Hace daño" (lambda (g) g)))
+(define c1 (card 'pokemon "Pikachu" '() 60 'lightning 'fighting 'metal 1 #f '() (list atk1)))
 
-   ;mazo cn 1 Pikachu y 59 energys
-   (define d1 (apply deck (cons c1 (make-list 59 e1))))
-   (define g1 (initGame d1 d1 1531312))
+(define d1 (apply deck (cons c1 (make-list 59 e1))))
+(define g1 (initGame d1 d1 1531312))
+
+;pikachu en la banca
+(define mi-pika (list-ref (cadr (car g1)) 5)) 
+(define g2 (playToBench g1 mi-pika))
+
+(displayln "--- PIKACHU EN BANCAA---")
+(displayln (printGame g2 1))
 
 
-   (define mi-pika (list-ref (cadr (car g1)) 5)) 
-   (define g2 (playToBench g1 mi-pika));ejecuta la jugaada
+(define turno (list-ref g2 3))
 
-   ;resultado
-   (displayln "--- game cn pikachu en banca ---")
-   (displayln (printGame g2 1)))
+(define jugador-con-el-turno (if (= turno 0) (car g2) (cadr g2)))
+(define pika-en-banca (car (list-ref jugador-con-el-turno 5)))
 
+;pasar pikachu a activo
+(define g3 (changeActivePokemon g2 pika-en-banca)) 
+(displayln "---PIKACHU ACTIVADO EN JUEGO!!----")
+(displayln (printGame g3 1)))
 
