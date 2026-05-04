@@ -17,8 +17,7 @@
 
 ; ver si existe al menos 1 poke basico en la mano!
 (define (tiene-basico? mano)
-  (if (null? mano)
-      #f
+  (if (null? mano) #f
       (if (and (eq? (get-card-type (car mano)) 'pokemon)
                (or (null? (get-pokemon-evolve-from (car mano)))
                    (equal? (get-pokemon-evolve-from (car mano)) '())
@@ -151,7 +150,6 @@
           [(equal? (car banca) c) (cdr banca)]
           [else (cons (car banca) (remover-de-banca (cdr banca) c))]))
 
-
   (define (procesar-cambio jugador c)
     (if (member c (list-ref jugador 5)) ;si la carta esta en banca
         (list (car jugador)    ;noimbre
@@ -171,6 +169,24 @@
         (procesar-cambio (cadr game) carta-banca)  ;player 2
         (list-ref game 2)                          ;seed
         (list-ref game 3)))                        ;turno
+
+
+(define (drawCardFromDeck game)
+  (define (aux jugador)
+    (if (null? (list-ref jugador 2)) ;si el mazo esta vacio
+        "OPONENTE GANA EL JUEGO" ; termina el juego
+        (list (car jugador)          ;nombre
+              (append (list-ref jugador 1) (list (car (list-ref jugador 2))));mano nuevaa
+              (cdr (list-ref jugador 2))    ;mazo
+              (list-ref jugador 3)          ;premios
+              (list-ref jugador 4)          ;activos
+              (list-ref jugador 5)          ;banca
+              (list-ref jugador 6))))       ;deescarte
+
+  ;aplicarlo al player que tiene el turno
+  (if (= (list-ref game 3) 0)
+      (list (aux (car game)) (cadr game) (list-ref game 2) (list-ref game 3))
+      (list (car game) (aux (cadr game)) (list-ref game 2) (list-ref game 3))))
 
 
 ; Dom: juego (Juego) X cartaPokemon (card) X cartaEnergia (card)
@@ -207,5 +223,9 @@
 ;pasar pikachu a activo
 (define g3 (changeActivePokemon g2 pika-en-banca)) 
 (displayln "---PIKACHU ACTIVADO EN JUEGO!!----")
-(displayln (printGame g3 1)))
+(displayln (printGame g3 1))
 
+
+(define g4 (drawCardFromDeck g3))
+(displayln "---carta sacada del mazo---")
+(displayln (printGame g4 1)))
