@@ -3,6 +3,19 @@
 (require "TDA-DECK_21668044_MolinaTorres.rkt")
 (require "TDA-ATTACK_21668044_MolinaTorres.rkt")
 
+(provide
+ initGame
+ printGame
+ playToBench
+ changeActivePokemon
+ drawCardFromDeck
+ useEnergyCard
+ evolvePokemon
+ useTrainerCard
+ ;usePokemonAbility
+ ;usePokemonAttack
+ )
+
 ;; ------------------ FUNCIONES AUXILIARES--------------------
 
 ;DESC: tomar n cartas de la baraja
@@ -32,8 +45,8 @@
       (if (and (eq? (get-card-type (car mano)) 'pokemon)               ; si quedan cartas reviso si es tipo pokemon Y
                (or (null? (get-pokemon-evolve-from (car mano)))        ; vigila que no tenga pre-evoluciones (debe ser básico)
                    (equal? (get-pokemon-evolve-from (car mano)) '())   ; que en pre-evoluciones no sea una lista nula
-                   (equal? (get-pokemon-evolve-from (car mano)) "")
-          (equal? (get-pokemon-evolve-from (car mano)) #f))); que en pre-evoluciones no sea una lista con vacío
+                   (equal? (get-pokemon-evolve-from (car mano)) "")    ; que en pre-evoluciones no sea una lista con vacío
+                   (equal? (get-pokemon-evolve-from (car mano)) #f)))           
           #t   ; si no se cumple nada de lo anterior es pq es básico!!
           (tiene-basico? (cdr mano))))) 
 
@@ -49,11 +62,6 @@
 ; DESC: elimina la carta especificada de la mano del jugador.
 ; DOM: list (mano) X list (carta)
 ; REC: list
-(define (remover-de-mano mano carta)
-  (cond [(null? mano) '()]  ; si la mano esta vacia no hay nada que quitar
-        [(equal? (car mano) carta) (cdr mano)] ; si encuentra la carta, devuelve la mano sin ésta
-        [else (cons (car mano) (remover-de-mano (cdr mano) carta))])) ;si no es la carta, la guarda y sigue con el llamado recursivo
-
 (define (quitar-de-mano mano carta)
   (remove carta mano))
 
@@ -80,25 +88,55 @@
         [else (cons (car banca) (reemplazar-en-banca (cdr banca) viejo nueva))]))
 
 
-
 ; DESC: Confirma si el pokemon puede evolucionar (tiene pre-evolucion en juego) y tiene al menos
 ;       un turno en juego
 ; DOM: viejo (list) X nueva (list)
 ; REC: bool
-
-#;(define (puede-evolucionar? viejo nueva);; func bug
-  (and (equal? (get-card-name viejo) (get-pokemon-evolve-from nueva)) ; Compatibilidad
-       (>= (list-ref viejo 11)  ; Asumiendo que el indice 11 guarda los turnos en juego
-           1)))                 
-
-
 (define (puede-evolucionar? viejo nueva)
-  (and (es-compatible? viejo nueva) 
+  (and (es-compatible? viejo nueva) ;revisa si es complatible
        (> (length viejo) 11)        ;Revisa que la lista sea > 11 antes de pedir el indice 11
        (>= (list-ref viejo 11) 1))); Al menos tenga 1 turno ya jugado.
 
+; DESC: CONVERTIR LST-CARDS -> STRING D NOMBRES
+; DOM: lst-cards (lista) X acc (string)
+; REC: string
+; RECURSIÓN: COLA
+(define (listar-nombres cartas acc)
+  (cond [(null? cartas) acc]
+        [(null? (car cartas)) (listar-nombres (cdr cartas) acc)]
+        [else (listar-nombres (cdr cartas) ;llamado recursivo con cdr cartas (siguiente pokemon)
+                              (string-append acc "\n\t  - " (list-ref (car cartas) 1)))]))
 
-; ; ------------------------------------------- INICIO DEL JUEGO ----------------------------------------------------
+
+; DESC:
+; DOM: 
+; REC: 
+; RECURSIÓN: 
+(define (formatear-individual p)
+  (string-append
+   "\n\t> " (list-ref p 1) " [" (symbol->string (list-ref p 4)) "]"
+   " | PS: " (number->string (list-ref p 3))
+   " | " (if (or (null? (list-ref p 2)) (equal? (list-ref p 2) "") (equal? (list-ref p 2) #f)) "Basico" "Evolucionado")
+   "\n\t  Debilidad : " (if (null? (list-ref p 5)) "Ninguna" (symbol->string (list-ref p 5)))
+   " | Resistencia : " (if (null? (list-ref p 6)) "Ninguna" (symbol->string (list-ref p 6)))
+   
+   ;calcula energias en juego (salta 11 indicess los cuales son stats y el turno)
+   "\n\t  Energias en juego (" (if (> (length p) 11) (number->string (length (drop p 12))) "0") "):"
+   (if (> (length p) 11) (listar-nombres (drop p 12) "") " Ninguna")
+   "\n"))
+
+
+; DESC: LST-CARDS-POKEMON -> string formateado con estadisticas base y añade sus energias utilizadas
+; DOM: lista-pokes (list) X acc (string) 
+; REC: acc (string)
+; RECURSIÓN: NATURAL
+(define (formatear-pokemons lista-pokes acc)
+  (cond [(null? lista-pokes) acc]
+        [(null? (car lista-pokes)) (formatear-pokemons (cdr lista-pokes) acc)] ;si el 1er elemento es nulo vamos la sgte
+        ;ver pokemon
+        [else (formatear-pokemons (cdr lista-pokes)
+                                  (string-append acc (formatear-individual (car lista-pokes))))]))
+
 
 (define (lanzar-moneda sem)
   (modulo (randomPuro sem) 2))
@@ -114,7 +152,7 @@
    (list "Player 1" (take m1 7)              ; toma las primeras 7 cartas del jugador 1
          (drop (drop m1 7)                   ; se salta las 7 cartas
                6)                            ; se salta otras 6 cartas!! (premios)
-                                             ; para poder ver la baraja disponible en juego
+         ; para poder ver la baraja disponible en juego
          
          (take (drop m1 7)                   ;se salta las primeras 7 cartas con el drop
                6)                            ; toma las prox 6 cartas (premios)
@@ -127,6 +165,18 @@
    sem
    (lanzar-moneda sem)))
 
+(define (pasar-turno g)
+  (list (car g) (cadr g) (list-ref g 2) (if (= (list-ref g 3) 0) 1 0)))
+
+(define (buscar-ataque ataques nombre)
+  (cond [(null? ataques) #f]
+        [(equal? (get-attack-name (car ataques)) nombre) (car ataques)]
+        [else (buscar-ataque (cdr ataques) nombre)]))
+
+
+; ; ------------------------------------------- INICIO DEL JUEGO ----------------------------------------------------
+
+
 ; DESC: Inicializa el juego... Prepara mazos de ambos jugadores para que sean válidos y arma TDA-GAME.
 ; DOM: deck1 (list) X deck2 (list) X semilla (int+)
 ; REC: list
@@ -136,40 +186,6 @@
    (preparar-mazo-valido (shuffleDeck deck2 (randomPuro semilla)) (randomPuro semilla))
    semilla))
 
-; DESC: CONVERTIR LST-CARDS -> STRING D NOMBRES
-; DOM: lst-cards (lista) X acc (string)
-; REC: string
-; RECURSIÓN: COLA
-(define (listar-nombres cartas acc-nombres)
-  (if (null? cartas)
-      acc-nombres
-      (listar-nombres (cdr cartas) 
-                      (string-append acc-nombres "\n\t" (get-card-name (car cartas))))))
-
-; DESC: LST-CARDS-POKEMON -> string formateado con estadisticas
-;       base y añade sus energias utilizadas.
-; DOM: lista-pokes (list) X acc (string) 
-; REC: acc (string)
-; RECURSIÓN: NATURAL
-(define (formatear-pokemons lista-pokes acc)
-  (cond 
-    [(null? lista-pokes) acc] ; lista nula se retorna el acc
-    
-    [(null? (car lista-pokes)) (formatear-pokemons (cdr lista-pokes) acc)] ;si el 1er elemento es nulo vamos la sgte
-
-    ;ver pokemon
-    [else 
-     (formatear-pokemons 
-      (cdr lista-pokes)
-      (string-append acc "\n\t" 
-                     (list-ref (car lista-pokes) 1) "    "                     ;nombre pokemon
-                     (number->string (list-ref (car lista-pokes) 3)) "PS    "  ;vida poke
-                     (symbol->string (list-ref (car lista-pokes) 4)) "    "    ; tipo de pokemonm 
-                     (if (> (length (car lista-pokes)) 11) ; si el largo de list-pokes es pq hay energias en juego
-                         (string-append "\n\t Energias en juego: " 
-                                        (listar-nombres (drop (car lista-pokes) 12) ""))
-                         "")))]))                          ; si no hay energias en juego, se imprime "vacio"
-
 
 ; DESC: muestra un string con el estado actual de la
 ;       partida (manos, mazos, premios, banca, pokemones-activo y descartes) 
@@ -177,38 +193,55 @@
 ; DOM: TDA-GAME (list) X player (int)
 ; REC: acc (string)
 ; RECURSION: COLA
-(define (printGame game player)
-  (define (aux g turno visor acc) ; g -> estado actual de la partida
-                                  ; visor es a quien se le revela datos de cartas
+(define (printGame game player-turno)
+  (define (aux g fase turno acc)
     (cond
-      [(= turno 0)
-       (aux g 1 visor (string-append "Turno actual -> PLAYER "
-                                     (number->string (+ (list-ref g 3) 1)) "\n\n"))] ; saca el int turno de TDA-GAME.
-                                                                                     ; +1 YA QUE NO PUEDE SER PLAYER 0, SINO 1.
-      
-      ;pplayer 1
-      [(= turno 1)
-       (aux g 2 visor 
-            (string-append acc "Jugador 1: " (number->string (length (cadr (car g)))) " cartas en la mano"
-                           (if (= visor 1) (listar-nombres (cadr (car g)) "") "") "\n"
-                           "Mazo: " (number->string (length (caddr (car g)))) " cartas disponibles\n"
-                           "Premios disponibles: " (number->string (length (cadddr (car g)))) "\n"
-                           "Banca: " (formatear-pokemons (list-ref (car g) 5) "") "\n"
-                           "Pokemon activo: " (if (null? (list-ref (car g) 4)) "Ninguno" (formatear-pokemons (list (list-ref (car g) 4)) "")) "\n"
-                           "Pila de descarte: " (listar-nombres (list-ref (car g) 6) "") "\n\n"))]
-      
-      ; player 2
-      [(= turno 2)
-       (aux g 3 visor 
-            (string-append acc "Jugador 2: " (number->string (length (cadr (cadr g)))) " cartas en la mano"
-                           (if (= visor 2) (listar-nombres (cadr (cadr g)) "") "") "\n"
-                           "Mazo: " (number->string (length (caddr (cadr g)))) " cartas disponibles\n"
-                           "Premios disponibles: " (number->string (length (cadddr (cadr g)))) "\n"
-                           "Banca: " (formatear-pokemons (list-ref (cadr g) 5) "") "\n"
-                           "Pokemon activo: " (if (null? (list-ref (cadr g) 4)) "Ninguno" (formatear-pokemons (list (list-ref (cadr g) 4)) "")) "\n"
-                           "Pila de descarte: " (listar-nombres (list-ref (cadr g) 6) "") "\n"))]
-      [else acc]))
-  (aux game 0 player ""))
+      ; FASE 0: Encabezado del juego
+      [(= fase 0)
+       (aux g 1 turno (string-append acc
+                                     ">>>>>>>>>>>>>>> TURNO ACTUAL: JUGADOR "                       ; saca el int turno de TDA-GAME.
+                                     (number->string (+ (list-ref g 3) 1))" <<<<<<<<<<<<<<" "\n"))] ; +1 YA QUE NO PUEDE SER PLAYER 0, SINO 1.
+
+      ; FASE 1: Datos del Jugador 1
+      [(= fase 1)
+       (aux g 2 turno
+            (string-append acc
+             "\n--- " (car (list-ref g 0)) " ---\n"
+             "Cartas en la mano: " (number->string (length (list-ref (list-ref g 0) 1))) " cartas"
+             
+             ; muestra las cartas del jugador 1 si es su turno
+             (if (= turno 1)
+                 (string-append "\n\tTus cartas son:" (listar-nombres (list-ref (list-ref g 0) 1) ""))
+                 "") ;si no es su turno no agrega nada
+             
+             "\n\nMazo: " (number->string (length (list-ref (list-ref g 0) 2))) " cartas disponibles"
+             "\nPremios: " (number->string (length (list-ref (list-ref g 0) 3))) " cartas disponibles"
+             "\nActivo: " (if (null? (list-ref (list-ref g 0) 4)) "Ninguno" (formatear-individual (list-ref (list-ref g 0) 4)))
+             "\nBanca: " (if (null? (list-ref (list-ref g 0) 5)) "Vacia\n" (formatear-pokemons (list-ref (list-ref g 0) 5) ""))
+             "Pila de descarte: " (if (null? (list-ref (list-ref g 0) 6)) "Vacia\n" (string-append (listar-nombres (list-ref (list-ref g 0) 6) "") "\n"))))]
+
+      ;player 2
+      [(= fase 2)
+       (aux g 3 turno
+            (string-append acc
+             "\n--- " (car (list-ref g 1)) " ---\n"
+             "Cartas en la mano: " (number->string (length (list-ref (list-ref g 1) 1))) " cartas"
+             
+
+             ; muestra las cartas del jugador 2 si es su turno.
+             (if (= turno 2)
+                 (string-append "\n\tTus cartas son:" (listar-nombres (list-ref (list-ref g 1) 1) ""))
+                 "");si no es su turno no agrega nada
+             
+             "\n\nMazo: " (number->string (length (list-ref (list-ref g 1) 2))) " cartas disponibles"
+             "\nPremios: " (number->string (length (list-ref (list-ref g 1) 3))) " cartas disponibles"
+             "\nActivo: " (if (null? (list-ref (list-ref g 1) 4)) "Ninguno" (formatear-individual (list-ref (list-ref g 1) 4)))
+             "\nBanca: " (if (null? (list-ref (list-ref g 1) 5)) "Vacía\n" (formatear-pokemons (list-ref (list-ref g 1) 5) ""))
+             "Pila de descarte: " (if (null? (list-ref (list-ref g 1) 6)) "Vacia\n" (string-append (listar-nombres (list-ref (list-ref g 1) 6) "") "\n"))))]
+
+      [else acc])) ;retorna el string
+  (aux game 0 player-turno ""))
+
 
 
 ; DESC: Mueve una carta-pokemon desde la mano del player que tiene el turno
@@ -220,7 +253,7 @@
   (define (actualizar-jugador jugador c)
     (if (and (eq? (get-card-type c) 'pokemon) (< (length (list-ref jugador 5)) 5))
         (list (car jugador)                         ;nombre
-              (remover-de-mano (cadr jugador) c)    ;nueva mano
+              (quitar-de-mano (cadr jugador) c)    ;nueva mano
               (caddr jugador)                       ;deck
               (cadddr jugador)                      ;premios
               (list-ref jugador 4)                  ;activo
@@ -345,7 +378,6 @@
   
   ;------------------------------------------------------------------------------------------
 
-
   ; DESC: ve la posicion del pokemon a quien se le asignará la energia y se le aplica
   ; DOM: jugador(list) X poke-dest(list card) x e (list card).
   ; REC: jugador (list)
@@ -354,14 +386,14 @@
       ;caso 1 pokemon destino esta activo
       [(equal? (list-ref jugador 4) poke-dest) ;list-ref jugador 4 = activo
        (reconstruir-jugador jugador 
-                            (remover-de-mano (list-ref jugador 1) e) ;nueva mano
+                            (quitar-de-mano (list-ref jugador 1) e) ;nueva mano
                             (append (list-ref jugador 4) (list e))   ;activo + energia
                             (list-ref jugador 5))]                   ;banca(sin cambio)
 
       ;caso 2 pokemon destino esta en banca
       [(member poke-dest (list-ref jugador 5)) ;list-ref jugador 4 = enbanca
        (reconstruir-jugador jugador 
-                            (remover-de-mano (list-ref jugador 1) e) ;nueva mano
+                            (quitar-de-mano (list-ref jugador 1) e) ;nueva mano
                             (list-ref jugador 4)                     ;activo (sin cambio)
                             (adjuntar (list-ref jugador 5) poke-dest e))] ;banca + energia
 
@@ -420,83 +452,43 @@
       (list (actualizar-jugador (list-ref game 0)) (list-ref game 1) (list-ref game 2) 0) ;JUGADOR 1
       (list (list-ref game 0) (actualizar-jugador (list-ref game 1)) (list-ref game 2) 1))) ;JUGADOR 2
 
-;-------------------------------------------------------------------------------------------------------------
 
 
-;; funcion de prueba temporal!!
-(define e1 (card 'energy "Energia Rayo" 'lightning))
-(define atk1 (attack '(lightning) "Trueno" "Hace daño" (lambda (g) g)))
-(define c1 (card 'pokemon "Pikachu" '() 60 'lightning 'fighting 'metal 1 #f '() (list atk1)))
+;; DESC: aplica el efecto de una carta de entrenador y la descarta (mueve a descarte)
+; DOM: juego (list) X trainer-card (list) X args (list)
+;REC: juego (list)
+(define (useTrainerCard game trainer-card args)
+  (define juego-post-efecto ((get-trainer-effect trainer-card) game args)) ; extraer el efecto de la carta de entrenador
 
-(define d1 (apply deck (cons c1 (make-list 59 e1))))
-(define g1 (initGame d1 d1 1531312))
+  ;actualiza mano y descarte (agrega la mano entrenador utilizada)
+  (define (procesar-descarte pj)
+    (list (car pj)                                ;nombre
+          (quitar-de-mano (cadr pj) trainer-card) ;mano (sin el entrenador)
+          (caddr pj)                              ;mazo
+          (cadddr pj)                             ;premios
+          (list-ref pj 4)                         ;activos
+          (list-ref pj 5)                         ;banca
+          (cons trainer-card (list-ref pj 6))))   ;pila descarte
 
-;pikachu en la banca
-(define mi-pika (list-ref (cadr (car g1)) 5)) 
-(define g2 (playToBench g1 mi-pika))
-
-(displayln "--- PIKACHU EN BANCAA---")
-(displayln (printGame g2 1))
-
-
-(define turno (list-ref g2 3))
-
-(define jugador-con-el-turno (if (= turno 0) (car g2) (cadr g2)))
-(define pika-en-banca (car (list-ref jugador-con-el-turno 5)))
-
-;pasar pikachu a activo
-(define g3 (changeActivePokemon g2 pika-en-banca)) 
-(displayln "---PIKACHU ACTIVADO EN JUEGO!!----")
-(displayln (printGame g3 1))
-
-
-(define g4 (drawCardFromDeck g3))
-(displayln "---carta sacada del mazo---")
-(displayln (printGame g4 1))
-
-
-(define turno-actual (list-ref g4 3))
-(define jugador-actuando (if (= turno-actual 0) (car g4) (cadr g4)))
-(define pika-activo (list-ref jugador-actuando 4)) 
-(define energia-robada (last (list-ref jugador-actuando 1)))
-
-(define g5 (useEnergyCard g4 pika-activo energia-robada))
-
-(displayln "-----PIKACHU CON ENERGIA--A--")
-(displayln (printGame g5 1))
+  ;actualizar el tda juego
+  (if (= (list-ref juego-post-efecto 3) 0) ;verifica si es turno del player 0 -> jugador1
+      ;playeer 1
+      (list (procesar-descarte (car juego-post-efecto)) ;actualiza jugador 1
+            (cadr juego-post-efecto)                   ;jugador 2 no cambia
+            (list-ref juego-post-efecto 2)             ; semilla
+            (list-ref juego-post-efecto 3))            ; Turno
+      
+      ;player 2
+      (list (car juego-post-efecto)                    ;jugador 1 no cambia
+            (procesar-descarte (cadr juego-post-efecto)) ;actualiza jugador 2
+            (list-ref juego-post-efecto 2)
+            (list-ref juego-post-efecto 3))))
 
 
-;;SCRIPT DE PRUEBA: EVOLUCIÓN
-
-(define e-rayo (card 'energy "Energia Rayo" 'lightning))
-(define atk-p (attack '(lightning) "Trueno" "40" (lambda (g) g)))
-
-; Pikachu con 1 en el indice 11 (para simular que ya pasó 1 turno)
-(define pika-v (append (card 'pokemon "pikachu" '() 60 'lightning 'fighting 'metal 1 #f '() (list atk-p)) '(1)))
-(define rai-c (card 'pokemon "Raichu" "pikachu" 100 'lightning 'fighting 'metal 1 #f '() (list atk-p)))
-
-(define mazo-p1 (append (make-list 20 pika-v) (make-list 10 rai-c) (make-list 30 e-rayo)))
-(define mazo-p2 (append (make-list 20 pika-v) (make-list 40 e-rayo)))
-
-(define g88 (initGame mazo-p1 mazo-p2 123456))
-
-(define g-turno-1 (list (car g88) (cadr g88) (caddr g88) 0))
-
-(define g89 (playToBench g-turno-1 pika-v))
-
-(define g90 (useEnergyCard g89 pika-v e-rayo))
-
-(displayln "--PIKACHU SIN EVOLUCION")
+; DESC: ejecuta el efecto que genera una habilidad de un pokemon (tiene que estar en juegop)
+; DOM: juego (list) X pokemon-card (list) X args (list)
+; REC: juego (list)
+;(define (usePokemonAbility game pokemon-card args)
+; (define habilidad (get-pokemon-ability pokemon-card)) ;extraer la habilidad del pokemon
 
 
-(displayln (printGame g90 1))
-
-
-(define pika-en-banca1 (car (list-ref (car g90) 5)))
-(define raichu-de-mano (car (filter (lambda (c) (equal? (get-card-name c) "Raichu")) (cadar g90))))
-
-(define g91 (evolvePokemon g90 pika-en-banca1 raichu-de-mano))
-
-
-(displayln "--PIKACHU EVOLUCIONADO-")
-(displayln (printGame g91 1))

@@ -10,15 +10,14 @@
  get-card-type
  get-card-name
  get-pokemon-hp
- get-pokemon-attacks
- get-trainer-effect
  get-pokemon-evolve-from
- get-pokemon-hp 
  get-pokemon-type 
  get-pokemon-attacks 
  get-pokemon-is-ex?
- ;get-trainer-type aun sin aplicar
- ;get-trainer-effect aun sin aplicar
+ get-pokemon-ability
+ get-trainer-type 
+ get-trainer-effect
+ 
  )
 
 
@@ -119,6 +118,7 @@
 (define (get-pokemon-type c)        (if (eq? (get-card-type c) 'pokemon) (list-ref c 4) (error "no es un pokemon")))
 (define (get-pokemon-attacks c)     (if (eq? (get-card-type c) 'pokemon) (list-ref c 10) (error "no es un pokemon")))
 (define (get-pokemon-is-ex? c)      (if (eq? (get-card-type c) 'pokemon) (list-ref c 8) (error "no es un pokemon")))
+(define (get-pokemon-ability c)     (if (eq? (get-card-type c) 'pokemon) (list-ref c 9) (error "no es un pokemon")))
 
 ;Selectores para entrenador
 (define (get-trainer-type c)   (if (eq? (get-card-type c) 'trainer) (caddr c) (error "no es un entrenador")))

@@ -6,14 +6,12 @@
  
  attack
  attack?
- ;;get-attack-cost
- ;;get-attack-name
- ;;get-attack-desc
- ;;get-attack-effect
+ get-attack-cost
+ get-attack-name
+ get-attack-desc
+ get-attack-effect
+ ability
  )
-
-
-
 
 
 ;; .......TDA ATACK........
@@ -39,7 +37,7 @@
 ;Selectores
 
 ; Dom: a (attack)
-; Rec: sting | func | list | null
+; Rec: string | func | list | null
 
 (define (get-attack-cost a)
   (if (attack? a) (cadr a) null))
@@ -54,3 +52,8 @@
 
 (define (get-attack-effect a)
   (if (attack? a) (list-ref a 4) (lambda (g args) g)))
+
+
+
+(define (ability nombre texto efecto)
+  (attack '() nombre texto efecto))
