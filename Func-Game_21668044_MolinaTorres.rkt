@@ -3,7 +3,7 @@
 (require "TDA-DECK_21668044_MolinaTorres.rkt")
 (require "TDA-ATTACK_21668044_MolinaTorres.rkt")
 
-;; FUNCIONES AUXILIARES
+;; ------------------ FUNCIONES AUXILIARES--------------------
 
 ;DESC: tomar n cartas de la baraja
 ;DOM: cards (list) X number-cards (int)
@@ -12,7 +12,7 @@
 (define (take lst n)
   (if (or (= n 0) (null? lst)) '()  ; CASO BASE: BARAJA VACIA o ya sacar todas las necesarias (n cartas).
       (cons (car lst) (take (cdr lst) (- n 1))))) ;toma la 1ra carta de la baraja
-                                                  ;llamado recursivo a sacar n-1 cartas más
+;llamado recursivo a sacar n-1 cartas más
 
 ; DESC: sacar las n cartas anteriores de la baraja (disminuye su cantidad)
 ; DOM: cards (list) X number-cards (int) ;
@@ -46,6 +46,49 @@
       (preparar-mazo-valido (shuffleDeck mazo (randomPuro semilla)) (randomPuro semilla))))
 
 
+; DESC: elimina la carta especificada de la mano del jugador.
+; DOM: list (mano) X list (carta)
+; REC: list
+(define (remover-de-mano mano carta)
+  (cond [(null? mano) '()]  ; si la mano esta vacia no hay nada que quitar
+        [(equal? (car mano) carta) (cdr mano)] ; si encuentra la carta, devuelve la mano sin ésta
+        [else (cons (car mano) (remover-de-mano (cdr mano) carta))])) ;si no es la carta, la guarda y sigue con el llamado recursivo
+
+
+
+; DESC: verifica si la carta de evolución es compatible con el pokemon en juego
+; DOM: list (mano) X list (carta)
+; REC: list
+(define (es-compatible? viejo nueva)
+  (equal? (get-card-name viejo) (get-pokemon-evolve-from nueva)))
+
+
+
+; DESC: reemplaza el pokemon en la banca manteniendo sus energias(si es que tiene)
+;DOM: banca (list) x viejo (list) x nueva (list)
+;REC: banca(list)
+(define (reemplazar-en-banca banca viejo nueva)
+  (cond [(null? banca) '()]         ; banca nula
+        [(equal? (car banca) viejo) ;revisa si el pokemon a evolucionar es el 1ro de la lista
+
+         ;si lo encuentra:
+         (cons (append nueva ;toma la carta de la evolución (nueva)
+                       (drop viejo 11)) ;ignora los 11 elementos solo para considerar las energias en juego
+               (cdr banca))]            ;une el pokemon evolucionado con el resto de la banca
+
+        ;si no era el pokemon: sigue buscando (llamado recursivo)
+        [else (cons (car banca) (reemplazar-en-banca (cdr banca) viejo nueva))]))
+
+
+
+; DESC: Verifica si un Pokémon cumple con los requisitos para evolucionar.
+; DOM: viejo (list) X nueva (list)
+; REC: boolean
+(define (puede-evolucionar? viejo nueva)
+  (and (equal? (get-card-name viejo) (get-pokemon-evolve-from nueva)) ; Compatibilidad
+       (>= (list-ref viejo 10) 1))) ; Asumiendo que el índice 10 guarda los turnos en juego
+
+
 ; ; ------------------------------------------- INICIO DEL JUEGO ----------------------------------------------------
 
 (define (lanzar-moneda sem)
@@ -76,14 +119,13 @@
    (lanzar-moneda sem)))
 
 ; DESC: Inicializa el juego... Prepara mazos de ambos jugadores para que sean válidos y arma TDA-GAME.
-; DOM: deck1 (list) X deck2 (list) X semilla (int)
+; DOM: deck1 (list) X deck2 (list) X semilla (int+)
 ; REC: list
 (define (initGame deck1 deck2 semilla)
   (armar-estado-juego 
    (preparar-mazo-valido (shuffleDeck deck1 semilla) semilla)
    (preparar-mazo-valido (shuffleDeck deck2 (randomPuro semilla)) (randomPuro semilla))
    semilla))
-
 
 
 ; DESC: CONVERTIR LST-CARDS -> STRING D NOMBRES
@@ -167,11 +209,6 @@
 ; DOM: TDA-GAME (list) X TDA-CARD(list)   
 ; REC: TDA-GAME (list)          (Nuevo TDA Game modificado)
 (define (playToBench game carta)
-  (define (remover-de-mano mano carta-buscada)
-    (cond [(null? mano) '()]
-          [(equal? (car mano) carta-buscada) (cdr mano)]
-          [else (cons (car mano) (remover-de-mano (cdr mano) carta-buscada))]))
-
   (define (actualizar-jugador jugador c)
     (if (and (eq? (get-card-type c) 'pokemon) (< (length (list-ref jugador 5)) 5))
         (list (car jugador)                         ;nombre
@@ -226,8 +263,12 @@
 (define (drawCardFromDeck game)
   (define (aux jugador)
     (list (car jugador)          ;nombre
-          (append (list-ref jugador 1) (list (car (list-ref jugador 2)))) ;mano nueva
-          (cdr (list-ref jugador 2))    ;mazo
+
+          ;mano nueva
+          (append (list-ref jugador 1) ;mano actual (cartas que ya tiene)
+                  (list (car (list-ref jugador 2)))) ;añade la primera carta de la baraja (deck)
+          
+          (cdr (list-ref jugador 2))    ;baraja
           (list-ref jugador 3)          ;premios
           (list-ref jugador 4)          ;activos
           (list-ref jugador 5)          ;banca
@@ -237,6 +278,7 @@
     ;si es jugador 1 se queda sin cartas
     [(and (= (list-ref game 3) 0) (null? (list-ref (car game) 2))) 
      "OPONENTE GANA EL JUEGO"]
+    
     ;si el jugador 2 se queda sin cartas
     [(and (= (list-ref game 3) 1) (null? (list-ref (cadr game) 2))) 
      "OPONENTE GANA EL JUEGO"]
@@ -252,15 +294,130 @@
      (list (car game) (aux (cadr game)) (list-ref game 2) (list-ref game 3))]))
 
 
-; Dom: juego (Juego) X cartaPokemon (card) X cartaEnergia (card)
-; REC: Juego
-#;(define (useEnergyCard game pokemon-destino carta-energia)
-  ;verificacion si es elturno y si la carta es energia
+
+
+; DESC: le asigna una energia a un pokemon en juego (banca o activo)
+;       LA carta de energia se elimina de la mano y se añade al final de la lista de pokemon
+; Dom: TDA-GAME (list) X cartaPokemon (list) X cartaEnergia (list)
+; REC: TDA-GAME (list)
+(define (useEnergyCard game pokemon-destino carta-energia)
   (define turno (list-ref game 3))
-  (define jugador-actual (if (= turno 0) (car game) (cadr game)))
-  (define mano (cadr jugador-actual)))
+
+  ;-------------FUNCIONES AUXILIARES INTERNAS----------------------------------------
+
+  ; DESC: busca el pokemon y le asigna energia al final d su lista
+  ; DOM: lista-poke (list) X poke-dest (list) X enrgia (list card)
+  ; REC: list
+  ; RECURSION: NATURAL
+  
+  (define (adjuntar lista-pokes poke-dest energia)
+    (cond [(null? lista-pokes) '()]                ; verifica que haya pokemon en la lista
+       
+          [(equal? (car lista-pokes) poke-dest)    ;busca pokemon 
+           (cons (append (car lista-pokes) (list energia)) (cdr lista-pokes))] ;le asigna la energia al final
+          ;y mantiene el resto de la banca
+
+          ;en caso de no encontrar la carta, sigue buscandola (llamado recursivo)
+          [else (cons (car lista-pokes) (adjuntar (cdr lista-pokes) poke-dest energia))]))
+
+  ;;;;;;;;;;;;;;;;;;;;;;;;
 
 
+  ; DESC: recibe datos y arma la lista final del jugador con datos actualizados
+  ; DOM: jugador (list)X nueva-mano (list) X activo-actualizado(list) X banca-actualizada (LIST)
+  ; REC: jugador (LIST) 
+  (define (reconstruir-jugador jugador nueva-mano activo-actualizado banca-actualizada)
+    (list (car jugador)             ; nombre
+          nueva-mano                ; mano(sin la energia usada)
+          (list-ref jugador 2)      ; deck
+          (list-ref jugador 3)      ; premios
+          activo-actualizado        ; pokemon activo 
+          banca-actualizada         ; banca actualizada
+          (list-ref jugador 6)))    ; descartess
+  ;;;;;;;;;;;;;;;;;;;;;;;;
+  
+  ;-----------------------------------------------------------------------------------
+
+
+  ; DESC: ve la posicion del pokemon a quien se le asignará la energia y se le aplica
+  ; DOM: jugador(list) X poke-dest(list card) x e (list card).
+  ; REC: jugador (list)
+  (define (procesar-energia jugador poke-dest e)
+    (cond 
+      ;caso 1 pokemon destino esta activo
+      [(equal? (list-ref jugador 4) poke-dest) ;list-ref jugador 4 = activo
+       (reconstruir-jugador jugador 
+                            (remover-de-mano (list-ref jugador 1) e) ;nueva mano
+                            (append (list-ref jugador 4) (list e))   ;activo + energia
+                            (list-ref jugador 5))]                   ;banca(sin cambio)
+
+      ;caso 2 pokemon destino esta en banca
+      [(member poke-dest (list-ref jugador 5)) ;list-ref jugador 4 = enbanca
+       (reconstruir-jugador jugador 
+                            (remover-de-mano (list-ref jugador 1) e) ;nueva mano
+                            (list-ref jugador 4)                     ;activo (sin cambio)
+                            (adjuntar (list-ref jugador 5) poke-dest e))] ;banca + energia
+
+      [else jugador])) ;si no lo encuentra no hace nada (devuelve el jugador como estaba)
+
+  ;RECONSTRUIR EL TDA-GAME
+  (if (= turno 0) ;ver si es el turno 1
+      ; si es turno del player 1
+      (list (procesar-energia (car game) pokemon-destino carta-energia) ;llama la fn para que ponga la energia y quite de la mano
+            (cadr game)       ; JUGADOR 2 (NO HAY CAMBIOS)
+            (list-ref game 2) ;SEMILLA (NO HAY CAMBIOS)
+            turno)            ; TURNO (NO HAY CAMBIOS)
+
+      ;PLAYER 2
+      (list (car game)  ; JUGADOR 1 (NO HAY CAMBIOS)
+            (procesar-energia (cadr game) pokemon-destino carta-energia) ;FN para ponerle la energia al pokemon y sacarla de su mano
+            (list-ref game 2) ;SEMILLA (NO HAY CAMBIOS)
+            turno)))          ; TURNO (NO HAY CAMBIOS)
+
+
+; DESC: Evoluciona algun pokemon que esté en el juego (activo o banca)usando carte de mano (su evolución)
+;      Tambien verifica compatibilidad y que el pokemon lleve al menos 1 turno en juego
+; DOM: TDA-GAME (list) X pokemon-a-evolucionar (list card) X carta-evolucion (list card)
+; REC: TDA-GAME (list)
+
+; DESC: Evoluciona un Pokémon activo o en banca si es compatible y lleva 1+ turno.
+; DOM: game (list) X pokemon-viejo (list) X carta-evolucion (list)
+; REC: TDA-GAME actualizado (list)
+
+(define (evolvePokemon game pokemon-viejo carta-evolucion)
+  (define turno-actual (list-ref game 3)) ; fn que ve el turno (0 o 1)
+  
+  ; reconstruye al jugador (viendo si el pokemon evoluciona o no)
+  (define (procesar-jugador pj viejo nueva)
+    (cond
+      [(not (puede-evolucionar? viejo nueva)) pj] ; ve si la evolucion es compatible cn el pokemon (pre-evolucion y turno)
+
+      ;caso 1: el pokemon a evolucionar está activo
+      [(equal? (list-ref pj 4) viejo)
+       (list (car pj)                          ;nombre
+             (remover-de-mano (cadr pj) nueva) ;quita carta-evolución de la mano
+             (caddr pj)                        ;baraja
+             (cadddr pj)                       ;premios
+             (append nueva (drop viejo 11))    ;pokemon acctivo nuevo(mantiene energías)
+             (list-ref pj 5)                   ;banca
+             (list-ref pj 6))]                 ;descarte
+
+       ;caso 2: el pokemon a evolucionar está en banca
+      [(member viejo (list-ref pj 5)); busca pokemon (viejo) en banca
+       (list (car pj)                  ; nombre
+             (remover-de-mano (cadr pj) nueva) ;quita carta-evolucion de la mano
+             (caddr pj)                      ; mazo
+             (cadddr pj)                       ; premios
+             (list-ref pj 4)                   ;; pokemon activo
+             (reemplazar-en-banca (list-ref pj 5) viejo nueva) ;banca nueva
+             (list-ref pj 6))]                  ;descarte
+      
+      [else pj])) ;else -> no se aplican cambios
+
+  ;aplica cambios al jugador que tiene el turno
+  (if (= turno-actual 0) ;TURNO 0 = PLAYER 1
+      (list (procesar-jugador (car game) pokemon-viejo carta-evolucion) (cadr game) (list-ref game 2) 0) ;JUGADOR 1
+      (list (car game) (procesar-jugador (cadr game) pokemon-viejo carta-evolucion) (list-ref game 2) 1))) ;JUGADOR 2
 
 ;; funcion de prueba temporal!!
 #;((define e1 (card 'energy "Energia Rayo" 'lightning))
@@ -291,4 +448,16 @@
 
 (define g4 (drawCardFromDeck g3))
 (displayln "---carta sacada del mazo---")
-(displayln (printGame g4 1)))
+(displayln (printGame g4 1))
+
+
+(define turno-actual (list-ref g4 3))
+(define jugador-actuando (if (= turno-actual 0) (car g4) (cadr g4)))
+(define pika-activo (list-ref jugador-actuando 4)) 
+(define energia-robada (last (list-ref jugador-actuando 1)))
+
+(define g5 (useEnergyCard g4 pika-activo energia-robada))
+
+(displayln "-----PIKACHU CON ENERGIA--A--")
+(displayln (printGame g5 1)))
+
