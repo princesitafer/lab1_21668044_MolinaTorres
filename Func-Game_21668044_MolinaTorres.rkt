@@ -32,10 +32,10 @@
       (if (and (eq? (get-card-type (car mano)) 'pokemon)               ; si quedan cartas reviso si es tipo pokemon Y
                (or (null? (get-pokemon-evolve-from (car mano)))        ; vigila que no tenga pre-evoluciones (debe ser básico)
                    (equal? (get-pokemon-evolve-from (car mano)) '())   ; que en pre-evoluciones no sea una lista nula
-                   (equal? (get-pokemon-evolve-from (car mano)) "")))  ; que en pre-evoluciones no sea una lista con vacío
+                   (equal? (get-pokemon-evolve-from (car mano)) "")
+          (equal? (get-pokemon-evolve-from (car mano)) #f))); que en pre-evoluciones no sea una lista con vacío
           #t   ; si no se cumple nada de lo anterior es pq es básico!!
           (tiene-basico? (cdr mano))))) 
-
 
 ; DESC: func para barajar denuevo si la mano no es valida
 ; DOM: mazo (list) x semilla (int)
@@ -54,7 +54,8 @@
         [(equal? (car mano) carta) (cdr mano)] ; si encuentra la carta, devuelve la mano sin ésta
         [else (cons (car mano) (remover-de-mano (cdr mano) carta))])) ;si no es la carta, la guarda y sigue con el llamado recursivo
 
-
+(define (quitar-de-mano mano carta)
+  (remove carta mano))
 
 ; DESC: verifica si la carta de evolución es compatible con el pokemon en juego
 ; DOM: list (mano) X list (carta)
@@ -63,8 +64,7 @@
   (equal? (get-card-name viejo) (get-pokemon-evolve-from nueva)))
 
 
-
-; DESC: reemplaza el pokemon en la banca manteniendo sus energias(si es que tiene)
+; DESC: eemplaza el pokemon en la banca manteniendo sus energias(si es que tiene)
 ;DOM: banca (list) x viejo (list) x nueva (list)
 ;REC: banca(list)
 (define (reemplazar-en-banca banca viejo nueva)
@@ -81,12 +81,21 @@
 
 
 
-; DESC: Verifica si un Pokémon cumple con los requisitos para evolucionar.
+; DESC: Confirma si el pokemon puede evolucionar (tiene pre-evolucion en juego) y tiene al menos
+;       un turno en juego
 ; DOM: viejo (list) X nueva (list)
-; REC: boolean
-(define (puede-evolucionar? viejo nueva)
+; REC: bool
+
+#;(define (puede-evolucionar? viejo nueva);; func bug
   (and (equal? (get-card-name viejo) (get-pokemon-evolve-from nueva)) ; Compatibilidad
-       (>= (list-ref viejo 10) 1))) ; Asumiendo que el índice 10 guarda los turnos en juego
+       (>= (list-ref viejo 11)  ; Asumiendo que el indice 11 guarda los turnos en juego
+           1)))                 
+
+
+(define (puede-evolucionar? viejo nueva)
+  (and (es-compatible? viejo nueva) 
+       (> (length viejo) 11)        ;Revisa que la lista sea > 11 antes de pedir el indice 11
+       (>= (list-ref viejo 11) 1))); Al menos tenga 1 turno ya jugado.
 
 
 ; ; ------------------------------------------- INICIO DEL JUEGO ----------------------------------------------------
@@ -127,7 +136,6 @@
    (preparar-mazo-valido (shuffleDeck deck2 (randomPuro semilla)) (randomPuro semilla))
    semilla))
 
-
 ; DESC: CONVERTIR LST-CARDS -> STRING D NOMBRES
 ; DOM: lst-cards (lista) X acc (string)
 ; REC: string
@@ -159,10 +167,10 @@
                      (symbol->string (list-ref (car lista-pokes) 4)) "    "    ; tipo de pokemonm 
                      (if (> (length (car lista-pokes)) 11) ; si el largo de list-pokes es pq hay energias en juego
                          (string-append "\n\t Energias en juego: " 
-                                        (listar-nombres (drop (car lista-pokes) 11) ""))
+                                        (listar-nombres (drop (car lista-pokes) 12) ""))
                          "")))]))                          ; si no hay energias en juego, se imprime "vacio"
 
-        
+
 ; DESC: muestra un string con el estado actual de la
 ;       partida (manos, mazos, premios, banca, pokemones-activo y descartes) 
 ;       muestra las cartas en mano de quien es el turno solo al propio jugador.
@@ -216,7 +224,7 @@
               (caddr jugador)                       ;deck
               (cadddr jugador)                      ;premios
               (list-ref jugador 4)                  ;activo
-              (cons c (list-ref jugador 5))         ;nueva banca
+              (cons (if (= (length c) 11) (append c '(0)) c) (list-ref jugador 5)) ;nueva banca
               (list-ref jugador 6))                 ;descartes
         jugador)) ;caso en que no hay espacio o no es pokemon
 
@@ -224,7 +232,7 @@
       (list (actualizar-jugador (car game) carta) (cadr game) (caddr game) (cadddr game))
       (list (car game) (actualizar-jugador (cadr game) carta) (caddr game) (cadddr game))))
 
-
+  
 ; DESC: cambia un pokemon en banca por el pokemon activo  de un jugador, si no hay poke activo,
 ;        mueve la carta de la banca a activo
 ; DOM: TDA-GAME (list) X TDA-CARD(list)   
@@ -232,11 +240,11 @@
 (define (changeActivePokemon game carta-banca)
   (define (remover-de-banca banca c) ;aux para sacar la carta de la banca de un player
     (cond [(null? banca) '()]
-          [(equal? (car banca) c) (cdr banca)]
-          [else (cons (car banca) (remover-de-banca (cdr banca) c))]))
+          [(equal? (get-card-name (car banca)) c) (car banca)]
+          [else (remover-de-banca (cdr banca) c)]))
 
   (define (procesar-cambio jugador c) ; IDENTIFICA A QUE JUGADOR LE PERTENECE LA CARTA
-    (if (member c (list-ref jugador 5)) ;si la carta esta en banca
+    (if c ;si la carta esta en banca
         (list (car jugador)    ;noimbre
               (cadr jugador)   ;mano
               (caddr jugador)  ;deck
@@ -245,17 +253,17 @@
 
               ;banca
               (if (null? (list-ref jugador 4)) 
-                  (remover-de-banca (list-ref jugador 5) c)
+                  (remover-de-banca (list-ref jugador 5)c)
                   (cons (list-ref jugador 4) (remover-de-banca (list-ref jugador 5) c)))
               (list-ref jugador 6)) jugador)) 
 
   ;se cambian datos nuevos de cada player
-  (list (procesar-cambio (car game) carta-banca)   ;player 1
-        (procesar-cambio (cadr game) carta-banca)  ;player 2
+  (list (procesar-cambio (car game) (remover-de-banca (list-ref (car game) 5) (get-card-name carta-banca))) ;player 1
+        (procesar-cambio (cadr game)(remover-de-banca (list-ref (cadr game) 5) (get-card-name carta-banca)))  ;player 2
         (list-ref game 2)                          ;semilla
         (list-ref game 3)))                        ;turno
 
-
+ 
 ;; DESC: jugador actual roba la primera carta de su baraja y la añade a su mano 
 ;       si el mazo está vacío -> el juego termina y gana el oponente
 ; DOM: TDA-GAME (list)
@@ -303,7 +311,7 @@
 (define (useEnergyCard game pokemon-destino carta-energia)
   (define turno (list-ref game 3))
 
-  ;-------------FUNCIONES AUXILIARES INTERNAS----------------------------------------
+  ;-------------FUNCIONES AUXILIARES INTERNAS------------------------------------------------
 
   ; DESC: busca el pokemon y le asigna energia al final d su lista
   ; DOM: lista-poke (list) X poke-dest (list) X enrgia (list card)
@@ -322,7 +330,6 @@
 
   ;;;;;;;;;;;;;;;;;;;;;;;;
 
-
   ; DESC: recibe datos y arma la lista final del jugador con datos actualizados
   ; DOM: jugador (list)X nueva-mano (list) X activo-actualizado(list) X banca-actualizada (LIST)
   ; REC: jugador (LIST) 
@@ -336,7 +343,7 @@
           (list-ref jugador 6)))    ; descartess
   ;;;;;;;;;;;;;;;;;;;;;;;;
   
-  ;-----------------------------------------------------------------------------------
+  ;------------------------------------------------------------------------------------------
 
 
   ; DESC: ve la posicion del pokemon a quien se le asignará la energia y se le aplica
@@ -375,52 +382,49 @@
             turno)))          ; TURNO (NO HAY CAMBIOS)
 
 
-; DESC: Evoluciona algun pokemon que esté en el juego (activo o banca)usando carte de mano (su evolución)
-;      Tambien verifica compatibilidad y que el pokemon lleve al menos 1 turno en juego
+
+; DESC: Evoluciona algun pokemon que esté en el juego (activo o banca)usando cartA en mano (su evolución)
+;      Tambien verifica compatibilidad y que el pokemon lleve al menos 1 turno en juego (indice 11)
 ; DOM: TDA-GAME (list) X pokemon-a-evolucionar (list card) X carta-evolucion (list card)
 ; REC: TDA-GAME (list)
-
-; DESC: Evoluciona un Pokémon activo o en banca si es compatible y lleva 1+ turno.
-; DOM: game (list) X pokemon-viejo (list) X carta-evolucion (list)
-; REC: TDA-GAME actualizado (list)
-
-(define (evolvePokemon game pokemon-viejo carta-evolucion)
-  (define turno-actual (list-ref game 3)) ; fn que ve el turno (0 o 1)
+(define (evolvePokemon game viejo nueva)
+  (define (actualizar-jugador pj) ;cambios del jugador
+    
+    (if (not (puede-evolucionar? viejo nueva)) pj ;si no puede evolucionar, se retorna el jugador sin cambios
+        
+        (if (equal? viejo (list-ref pj 4))    ;el pokemon a evolucionar está activo       
+            (list (car pj)                      ;nombre            
+                  (remove nueva (list-ref pj 1)) ;elimina 1 carta d evolucion de la mano
+                  (caddr pj)                     ;baraja           
+                  (cadddr pj)                    ;premios           
+                  (append nueva (drop viejo 11)) ;pokemon acctivo nuevo(mantiene energías)   
+                  (list-ref pj 5)                ;banca   
+                  (list-ref pj 6))               ;descarte 
+            
+            (if (member viejo (list-ref pj 5))  ;pokemon a evolucionar está en la banca
+                (list (car pj)                  ;nombre                
+                      (remove nueva (list-ref pj 1)) ;elimina 1 carta d evolucion de la mano
+                      (caddr pj)                    ;baraja            
+                      (cadddr pj)                   ;premios            
+                      (list-ref pj 4)               ;pokemon activo   
+                      (map (lambda (p) 
+                             (if (equal? p viejo)    ;mira si el pokemon viejo es el evolucionará 
+                                 (append nueva (drop viejo 11)) ;carta de energía en juego!! 
+                                 p))  
+                           (list-ref pj 5))         ;banca  
+                      (list-ref pj 6))              ;descarte  
+                pj)))) ;si no encuentra turno -> no hace nada
   
-  ; reconstruye al jugador (viendo si el pokemon evoluciona o no)
-  (define (procesar-jugador pj viejo nueva)
-    (cond
-      [(not (puede-evolucionar? viejo nueva)) pj] ; ve si la evolucion es compatible cn el pokemon (pre-evolucion y turno)
+ ;;aplica cambios al jugador que tiene el turno
+  (if (= (list-ref game 3) 0)  ; pregunta si es el turno 0 = jugador 1 
+      (list (actualizar-jugador (list-ref game 0)) (list-ref game 1) (list-ref game 2) 0) ;JUGADOR 1
+      (list (list-ref game 0) (actualizar-jugador (list-ref game 1)) (list-ref game 2) 1))) ;JUGADOR 2
 
-      ;caso 1: el pokemon a evolucionar está activo
-      [(equal? (list-ref pj 4) viejo)
-       (list (car pj)                          ;nombre
-             (remover-de-mano (cadr pj) nueva) ;quita carta-evolución de la mano
-             (caddr pj)                        ;baraja
-             (cadddr pj)                       ;premios
-             (append nueva (drop viejo 11))    ;pokemon acctivo nuevo(mantiene energías)
-             (list-ref pj 5)                   ;banca
-             (list-ref pj 6))]                 ;descarte
+;-------------------------------------------------------------------------------------------------------------
 
-       ;caso 2: el pokemon a evolucionar está en banca
-      [(member viejo (list-ref pj 5)); busca pokemon (viejo) en banca
-       (list (car pj)                  ; nombre
-             (remover-de-mano (cadr pj) nueva) ;quita carta-evolucion de la mano
-             (caddr pj)                      ; mazo
-             (cadddr pj)                       ; premios
-             (list-ref pj 4)                   ;; pokemon activo
-             (reemplazar-en-banca (list-ref pj 5) viejo nueva) ;banca nueva
-             (list-ref pj 6))]                  ;descarte
-      
-      [else pj])) ;else -> no se aplican cambios
-
-  ;aplica cambios al jugador que tiene el turno
-  (if (= turno-actual 0) ;TURNO 0 = PLAYER 1
-      (list (procesar-jugador (car game) pokemon-viejo carta-evolucion) (cadr game) (list-ref game 2) 0) ;JUGADOR 1
-      (list (car game) (procesar-jugador (cadr game) pokemon-viejo carta-evolucion) (list-ref game 2) 1))) ;JUGADOR 2
 
 ;; funcion de prueba temporal!!
-#;((define e1 (card 'energy "Energia Rayo" 'lightning))
+(define e1 (card 'energy "Energia Rayo" 'lightning))
 (define atk1 (attack '(lightning) "Trueno" "Hace daño" (lambda (g) g)))
 (define c1 (card 'pokemon "Pikachu" '() 60 'lightning 'fighting 'metal 1 #f '() (list atk1)))
 
@@ -459,5 +463,40 @@
 (define g5 (useEnergyCard g4 pika-activo energia-robada))
 
 (displayln "-----PIKACHU CON ENERGIA--A--")
-(displayln (printGame g5 1)))
+(displayln (printGame g5 1))
 
+
+;;SCRIPT DE PRUEBA: EVOLUCIÓN
+
+(define e-rayo (card 'energy "Energia Rayo" 'lightning))
+(define atk-p (attack '(lightning) "Trueno" "40" (lambda (g) g)))
+
+; Pikachu con 1 en el indice 11 (para simular que ya pasó 1 turno)
+(define pika-v (append (card 'pokemon "pikachu" '() 60 'lightning 'fighting 'metal 1 #f '() (list atk-p)) '(1)))
+(define rai-c (card 'pokemon "Raichu" "pikachu" 100 'lightning 'fighting 'metal 1 #f '() (list atk-p)))
+
+(define mazo-p1 (append (make-list 20 pika-v) (make-list 10 rai-c) (make-list 30 e-rayo)))
+(define mazo-p2 (append (make-list 20 pika-v) (make-list 40 e-rayo)))
+
+(define g88 (initGame mazo-p1 mazo-p2 123456))
+
+(define g-turno-1 (list (car g88) (cadr g88) (caddr g88) 0))
+
+(define g89 (playToBench g-turno-1 pika-v))
+
+(define g90 (useEnergyCard g89 pika-v e-rayo))
+
+(displayln "--PIKACHU SIN EVOLUCION")
+
+
+(displayln (printGame g90 1))
+
+
+(define pika-en-banca1 (car (list-ref (car g90) 5)))
+(define raichu-de-mano (car (filter (lambda (c) (equal? (get-card-name c) "Raichu")) (cadar g90))))
+
+(define g91 (evolvePokemon g90 pika-en-banca1 raichu-de-mano))
+
+
+(displayln "--PIKACHU EVOLUCIONADO-")
+(displayln (printGame g91 1))
