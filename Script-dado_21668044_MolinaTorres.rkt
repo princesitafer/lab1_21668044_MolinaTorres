@@ -1,6 +1,5 @@
 #lang racket
 (require "MAIN_21668044_MolinaTorres.rkt")
-(require "acciones_21668044_MolinaTorres.rkt")
 
 ;; ============================================================
 ;; RF02 - ATAQUES
@@ -136,7 +135,7 @@
 (displayln (printGame g5 1)) 
 (display "\n")
 
-; haz que el siguiente turno nunca se ejecute
+
 ;; ============================================================
 ;; TURNO 2 - Jugador 2
 ;; J2 roba carta, pone Pikachu como activo, adjunta 1 energía
@@ -152,7 +151,7 @@
 (define g10 (usePokemonAttack g9 c7 null '()))  ; RF15 usePokemonAttack
 (displayln (printGame g10 2))
 (display "\n")
-; haz que cada ataque sea null y que el programa falle
+
 ;; ============================================================
 ;; TURNO 3 - Jugador 1
 ;; J1 pone Charmander en la banca, adjunta 2da energía psíquica
@@ -218,7 +217,7 @@
 
 (display "===== TURNO 6 - Jugador 2 =====\n")
 (define g23 (drawCardFromDeck g22))  ; RF10 drawCardFromDeck
-(define g24 (useTrainerCard g23 ct5 (list c7 ce-elec)))  ; RF13 useTrainerCard
+(define g24 (useTrainerCard g23 ct5 (list c7 ce-elec))) ; RF13 useTrainerCard
 (define g24b (playToBench g24 c9))  ; RF08 playToBench
 (define g25 (usePokemonAbility g24b c9 '()))  ; RF14 usePokemonAbility
 (define g26 (useEnergyCard g25 c7 ce-elec))  ; RF11 useEnergyCard

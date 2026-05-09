@@ -2,10 +2,7 @@
 (require "Func-Game_21668044_MolinaTorres.rkt")
 
 (provide
- robar-n
- accion-dano-variable
  accion-superpocion 
- accion-mover-energia
  accion-sin-efecto
  accion-dormir
  accion-paralizar
@@ -17,7 +14,7 @@
  accion-cambio
  )
 
-;DESC: Aplica estado para un pokemon (lo añade a su nombre)
+;DESC: aplica estado para un pokemon (lo añade a su nombre)
 ;DOM: pj (list) x sufijo(string)
 ;REC: list
 (define (marcar-activo pj sufijo)
@@ -33,9 +30,11 @@
 ;REC: list
 (define (aplicar-estado-rival juego sufijo)
   (define turno (list-ref juego 3)) ;turno (0 o 1)
-  (if (= turno 0) ; si es turno del player 1, se le aplica a player 2 (y viceversa.)     
-      (list (car juego) (marcar-activo (cadr juego) sufijo) (list-ref juego 2) turno)
-      (list (marcar-activo (car juego) sufijo) (cadr juego) (list-ref juego 2) turno)))
+  (if (= turno 0) ; si es turno del player 1, se le aplica a player 2 (y viceversa.)
+
+      ;aplica el sufijo al defensor del turno
+      (list (car juego) (marcar-activo (cadr juego) sufijo) (list-ref juego 2) turno) ;jugador 1
+      (list (marcar-activo (car juego) sufijo) (cadr juego) (list-ref juego 2) turno))) ;jugador 2
 
 
 ;DESC: vacia la mano del jugador
@@ -56,7 +55,7 @@
 ;REC: juego (list)
 (define (accion-descartar-mano juego)
   (define turno (list-ref juego 3)) ;turno
-  (if (= turno 0)  ; si es el turno de player 1, le vacia su mano y mantiene el otro jugador (o viceversa)
+  (if (= turno 0)                   ; si es el turno de player 1, le vacia su mano y mantiene el otro jugador (o viceversa)
       (list (vaciar-mano-pj (car juego)) (cadr juego) (list-ref juego 2) turno)
       (list (car juego) (vaciar-mano-pj (cadr juego)) (list-ref juego 2) turno)))
 
@@ -67,43 +66,8 @@
 (define (robar-n juego n)
   (if (or (= n 0) (string? juego)) juego (robar-n (drawCardFromDeck juego) (- n 1))))
 
-;DESC: cura al pokemon (reduce daño acumulado del pokemon para posterior quitar energias en juego)
-;DOM: p (list) x energia-obj(list)
-;REC: list
-(define (curar-poke p energia-obj)
-  (append (take p 12) 
-          (list (if (< (list-ref p 12) 60) 0 (- (list-ref p 12) 60))) 
-          (remove energia-obj (drop p 13))))
 
-;DESC: busca en la banca un pokemon por nombre para curarle (reducir su daño acumulado)
-;DOM: banca(list) X nombre-obj(string) X energia-obj (list)
-;REC: list
-;RECURSION: de cola
-(define (curar-banca banca nombre-obj energia-obj)
-  (cond [(null? banca) '()]
-        [(equal? (list-ref (car banca) 1) nombre-obj) (cons (curar-poke (car banca) energia-obj) (cdr banca))]
-        [else (cons (car banca) (curar-banca (cdr banca) nombre-obj energia-obj))]))
-
-;DESC: funcion la cual controla a que pokemon curar: si uno de la banca o uno que está activo
-;DOM: pj (list)X nombre-obj(string) X energia-obj(list)
-;REC: list
-(define (curar-pj pj nombre-obj energia-obj)
-  (cond [(and (not (null? (list-ref pj 4))) (equal? (list-ref (list-ref pj 4) 1) nombre-obj))
-         (list (car pj) (cadr pj) (caddr pj) (cadddr pj) (curar-poke (list-ref pj 4) energia-obj) (list-ref pj 5) (list-ref pj 6))]
-        [else (list (car pj) (cadr pj) (caddr pj) (cadddr pj) (list-ref pj 4) (curar-banca (list-ref pj 5) nombre-obj energia-obj) (list-ref pj 6))]))
-
-;DESC: funcion de ayuda para habilidades/ataques los cuales ignoren debilidades o resistencias
-;DOM: pj (list) X dano(int)
-;REC: list
-(define (daniar-activo pj dano)
-  (if (null? (list-ref pj 4)) pj
-      (list (car pj) (cadr pj) (caddr pj) (cadddr pj)
-            (append (take (list-ref pj 4) 12) 
-                    (list (+ (list-ref (list-ref pj 4) 12) dano)) 
-                    (drop (list-ref pj 4) 13))
-            (list-ref pj 5) (list-ref pj 6))))
-
-;DESC: Mueve la energía de un pokemon a otro dentro de la banca
+;DESC: mueve la energia de un pokemon a otro dentro de la banca
 ;DOM: banca (list)
 ;REC: banca (list)
 (define (mover-energia-banca banca)
@@ -119,7 +83,19 @@
 (define (procesar-mover-pj pj)
   (list (car pj) (cadr pj) (caddr pj) (cadddr pj) (list-ref pj 4) (mover-energia-banca (list-ref pj 5)) (list-ref pj 6)))
 
+;DESC: funcion de ayuda para habilidades/ataques los cuales ignoren debilidades o resistencias
+;DOM: pj (list) X dano(int)
+;REC: list
+(define (daniar-activo pj dano)
+  (if (null? (list-ref pj 4)) pj
+      (list (car pj) (cadr pj) (caddr pj) (cadddr pj)
+            (append (take (list-ref pj 4) 12) 
+                    (list (+ (list-ref (list-ref pj 4) 12) dano)) 
+                    (drop (list-ref pj 4) 13))
+            (list-ref pj 5) (list-ref pj 6))))
 
+
+;-------------------------------------------------------------------------------------------------------------------------------
 ;IMPLEMENTACION
 (define accion-sin-efecto 
   (lambda (juego args) juego))
@@ -132,6 +108,9 @@
 
 (define accion-envenenar 
   (lambda (juego args) (aplicar-estado-rival juego " [envenenado]")))
+
+(define accion-confundir 
+  (lambda (juego args) (aplicar-estado-rival juego " [confundido]")))
 
 (define accion-dano-variable 
   (lambda (juego args)
@@ -161,8 +140,8 @@
     
     (define (curar p)
       (append (take p 12) (list (if (< (list-ref p 12) 60) ; mira el contador de daño acumulado
-                                    ; si >60 = daño acumulado (0)
-                                    ; si es mayor el daño acumulado solo resta 60
+                                                           ; si >60 = daño acumulado (0)
+                                                           ; si es mayor el daño acumulado solo resta 60
                                     0 (- (list-ref p 12) 60)))
               (remove energia-poke (drop p 13)))) ;elimina la energia (energia-poke)
       

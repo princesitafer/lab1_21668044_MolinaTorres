@@ -23,8 +23,6 @@ useTrainerCard       ;RF13
 usePokemonAbility    ;RF14
 usePokemonAttack     ;RF15
 
-robar-n
-lanzar-moneda
 ;--- TDA CARD
 card
  card?
@@ -55,8 +53,7 @@ card
  shuffleDeck
  randomPuro
 
-coincide-nombre?
-  robar-n
+ lanzar-moneda
  accion-dano-variable
  accion-superpocion 
  accion-mover-energia
@@ -69,5 +66,5 @@ coincide-nombre?
  accion-robar-carta
  accion-pokeball
  accion-cambio
- 
+ coincide-nombre?
  )
